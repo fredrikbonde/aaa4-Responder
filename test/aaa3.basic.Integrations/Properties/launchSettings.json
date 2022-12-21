@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "aaa3.basic.Integrations": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "Application__AppEnvironment": "test"
+      }
+    }
+  }
+}

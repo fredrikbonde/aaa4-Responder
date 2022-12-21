@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+
+Description: |
+  ECR repo 
+
+Parameters:
+  Name:
+    Type: String
+    Default: webapi
+
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - local
+      - dev
+      - test
+      - sit
+      - preprod
+      - prod
+    Description: Environment
+
+  Owner:
+    Type: String
+    Default: bloxx
+    Description: Owner team
+
+  Platform:
+    Type: String
+    Default: bloxx
+    AllowedValues:
+      - bloxx
+      - bic
+      - parknow
+    Description: platform information
+
+  Subsystem:
+    Type: String
+    Default: basic
+    Description: Subsystem information
+
+  System:
+    Type: String
+    Default: aaa3
+    Description: System information
+    
+Resources:
+  ECR:
+    Type: AWS::ECR::Repository
+    Properties:
+        RepositoryName: !Sub "${Platform}/${System}-${Subsystem}-${Name}-repo"
+        RepositoryPolicyText:
+            Version: "2012-10-17"
+            Statement:
+                -
+                  Sid: AllowPushPull
+                  Effect: Allow
+                  Principal: "*"
+                  Action:
+                    - "ecr:GetDownloadUrlForLayer"
+                    - "ecr:BatchGetImage"
+                    - "ecr:BatchCheckLayerAvailability"
+                    - "ecr:DescribeImages"
+                    - "ecr:DescribeRepositories"

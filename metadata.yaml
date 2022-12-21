@@ -1,0 +1,13 @@
+Version: "2.0"
+Description: >
+  aaa3.basic  Service
+Platform: bloxx
+System: aaa3
+Subsystem: basic
+Owner: bloxx
+Runtimes:
+  - dotnet 6.0
+JiraReference: 
+ApplicationTypes:
+  - webapi
+CustomerFacing: false

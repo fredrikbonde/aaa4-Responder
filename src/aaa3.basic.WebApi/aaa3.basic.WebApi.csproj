@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <Content Remove="configs\appsettings.preprod.json" />
+	  <Content Remove="configs\appsettings.prod.json" />
+	  <Content Remove="configs\appsettings.sit.json" />
+	  <Content Remove="configs\appsettings.test.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Amazon.Extensions.Configuration.SystemsManager" Version="3.0.0" />
+		<PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="11.0.0" />
+		<PackageReference Include="NSwag.AspNetCore" Version="13.15.10" />
+		<PackageReference Include="Overleaf.Configuration" Version="3.1.0-alpha00023" />
+		<PackageReference Include="Overleaf.Authentication.AspNetCore" Version="3.1.5" />
+		<PackageReference Include="Overleaf.Configuration.HealthChecks" Version="3.1.0-alpha00023" />
+		<PackageReference Include="Overleaf.Configuration.Validation" Version="3.1.0-alpha00023" />
+		<PackageReference Include="Overleaf.Logging" Version="2.6.0" />
+		<PackageReference Include="NewRelic.Agent.Api" Version="9.6.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Include="configs\appsettings.preprod.json" />
+	  <None Include="configs\appsettings.prod.json" />
+	  <None Include="configs\appsettings.sit.json" />
+	  <None Include="configs\appsettings.test.json">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+
+</Project>

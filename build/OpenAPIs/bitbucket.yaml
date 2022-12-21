@@ -1,0 +1,252 @@
+﻿openapi: 3.0.0
+servers:
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/zahy/bitbucket-rest-api/1.0.0
+info:
+  description: This is a Bitbucket server api based on 
+        https://docs.atlassian.com/bitbucket-server/rest/5.16.0/bitbucket-rest.html
+  version: "1.0.0"
+  title: Bitbucket server api
+  contact:
+    email: zahy.cs@gmail.com
+  license:
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+tags:
+  - name: branches
+    description: manage bitbucket git branches
+  - name: pull requests
+    description: Operations on pull requests
+paths:
+  /projects/{projectKey}/repos/{repositorySlug}/branches:
+    post:
+      tags:
+        - branches
+      summary: creates a new branch
+      operationId: createBranch
+      description: creates a new branch
+      responses:
+        '200':
+          description: item created
+        '400':
+          description: 'invalid input, object invalid'
+        '409':
+          description: an existing item already exists
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Branch'
+        description: Inventory item to add
+      parameters:
+      - name: projectKey
+        in: path
+        description: bitbuckt project key
+        required: true
+        schema:
+          type: string
+      - name: repositorySlug
+        in: path
+        description: bitbuckt repositorySlug key
+        required: true
+        schema:
+          type: string          
+  /projects/{projectKey}/repos/{repositorySlug}/pull-requests:
+    post:
+      tags:
+        - pull requests
+      summary: creates pull request
+      operationId: createPullRequest
+      description: creates pull request
+      responses:
+        '201':
+          description: item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequest'          
+        '400':
+          description: 'invalid input, object invalid'
+        '409':
+          description: an existing item already exists
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PullRequest'
+        description: Inventory item to add
+      parameters:
+      - name: projectKey
+        in: path
+        description: bitbuckt project key
+        required: true
+        schema:
+          type: string
+      - name: repositorySlug
+        in: path
+        description: bitbuckt repositorySlug key
+        required: true
+        schema:
+          type: string          
+  /projects/{projectKey}/repos/{repositorySlug}/pull-requests/{pullRequestId}:
+    get:
+      tags:
+        - pull requests
+      summary: creates pull request
+      operationId: getPullRequest
+      description: creates pull request
+      responses:
+        '200':
+          description: pull request info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequest'          
+        '400':
+          description: 'invalid input, object invalid'
+        '409':
+          description: an existing item already exists
+     
+      parameters:
+      - name: projectKey
+        in: path
+        description: bitbuckt project key
+        required: true
+        schema:
+          type: string
+      - name: repositorySlug
+        in: path
+        description: bitbuckt repositorySlug key
+        required: true
+        schema:
+          type: string
+      - name: pullRequestId
+        in: path
+        description: bitbuckt repositorySlug key
+        required: true
+        schema:
+          type: integer
+          format: int64
+  /projects/{projectKey}/repos/{repositorySlug}/pull-requests/{pullRequestId}/merge:
+    post:
+      tags:
+        - pull requests
+      summary: creates pull request
+      operationId: mergePullRequest
+      description: creates pull request
+      responses:
+        '200':
+          description: item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequest'          
+        '400':
+          description: 'invalid input, object invalid'
+        '409':
+          description: an existing item already exists
+
+      parameters:
+      - name: projectKey
+        in: path
+        description: bitbuckt project key
+        required: true
+        schema:
+          type: string
+      - name: repositorySlug
+        in: path
+        description: bitbuckt repositorySlug key
+        required: true
+        schema:
+          type: string
+      - name: pullRequestId
+        in: path
+        description: bitbuckt repositorySlug key
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: version
+        in: query
+        description: bitbuckt repositorySlug key
+        required: true
+        schema:
+          type: string
+  /projects/{projectKey}/repos/{repositorySlug}/tags:
+    post:
+      tags:
+        - tags
+      summary: creates a new branch
+      operationId: createTag
+      description: |-
+        creates a new branch
+      responses:
+        '200':
+          description: item created
+        '400':
+          description: 'invalid input, object invalid'
+        '409':
+          description: an existing item already exists
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Branch'
+        description: Inventory item to add
+      parameters:
+      - name: projectKey
+        in: path
+        description: bitbuckt project key
+        required: true
+        schema:
+          type: string
+      - name: repositorySlug
+        in: path
+        description: bitbuckt repositorySlug key
+        required: true
+        schema:
+          type: string                  
+components:
+  schemas:
+    Branch:
+      type: object
+      required:
+        - name
+        - startPoint
+      properties:
+        name:
+          type: string
+          example: feature/my-feature-branch
+        startPoint:
+          type: string
+          example: refs/heads/master
+    PullRequest:
+      required:
+        - title
+        - fromRef
+        - toRef
+      properties:
+        title:
+          type: string
+          example: PR Name
+        id:
+          type: integer
+          format: int64
+          example: PR id  
+        fromRef:
+          $ref: '#/components/schemas/Ref'
+        toRef:
+          $ref: '#/components/schemas/Ref'
+        version:
+          type: string
+          example: PR Name  
+      type: object
+    Ref:
+      required:
+        - id 
+      properties:
+        id:
+          type: string
+          example: refs/heads/master
+      type: object

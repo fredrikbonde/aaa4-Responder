@@ -1,0 +1,432 @@
+---
+# yamllint disable rule:line-length
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Cloudformation template for provisioning a full-fledged ECS service including additional resources that utilize shared ECS components.
+
+Parameters:
+
+  Name:
+    Type: String
+    Default: webapi
+
+  Version:
+    Type: String
+    Description: version
+
+  Owner:
+    Type: String
+    Description: Squad responsible for this parent stack.
+    Default: bloxx
+  Platform:
+    Type: String
+    AllowedValues:
+      - bloxx
+      - parknow
+    Description: Platform name
+    Default: bloxx
+
+  System:
+    Type: String
+    Description: System name
+    Default: aaa3
+
+  Subsystem:
+    Type: String
+    Description: Subsystem name
+    Default: basic
+
+  ClusterName:
+    Type: String
+
+  ClusterArn:
+    Type: String
+
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - test
+      - sit
+      - preprod
+      - prod
+
+  ApiGatewayDomainName:
+    Type: String
+
+  CPU:
+    Type: String
+    Default: 256
+    AllowedValues:
+      - 256
+      - 512
+      - 1024
+      - 2048
+      - 4096
+
+  Memory:
+    Type: String
+    Description: "See CPU for allowed RAM values. value format: 1GB"
+    Default: 1GB
+
+  MinContainers:
+    Default: 1
+    Type: Number
+    Description: Minimal amount of containers that the ECS service orchestrator will keep healthy.
+
+  MaxContainers:
+    Default: 2
+    Type: Number
+    Description: Maximum amount of containers that the ECS service orchestrator will keep healthy.
+
+  DesiredTaskCount:
+    Default: 1
+    Type: Number
+    Description: Desired amount of containers that the ECS service orchestrator will keep healthy.
+
+  HealthCheckPath:
+    Type: String
+    Description: Application route to allow the target group to execute periodic health checks against.
+    Default: /health
+
+  ContainerPort:
+    Type: Number
+    Description: Port that is exposed in the Dockerfile.
+    Default: 80
+
+  HttpsListenerArn:
+    Type: String
+
+  LoadbalancerDns:
+    Type: String
+
+  VpcId:
+    Type: String
+
+  SubnetIds:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: A list of VPC subnet IDs for the subnet group.
+
+  # Internal stack parameters can be found below, preferably to not overwrite these.
+  Route53StackUrl:
+    Type: String
+    Default: https://s3.amazonaws.com/px-automation-cloudformation-stacks/templates/route53/latest/route53.yaml
+
+  ProdRetentionInDays:
+    Type: String
+    Default: 14
+    Description: Prod Retention period in days
+
+  NonProdRetentionInDays:
+    Type: String
+    Default: 7
+    Description: Non Prod retention period in days
+
+  AwsAutomationAccount:
+    Type: String
+    Default: "380786374138"
+    Description: AWS parknow-automation account
+
+  AwsAutomationAccountRegion:
+    Type: String
+    Default: "eu-central-1"
+    Description: AWS parknow-automation account
+  KMSKey:
+    Type: String
+    Description: Api Gateway Domain Certificate Arn
+
+Conditions:
+  ProdTemplate: !Equals [!Ref Environment, 'prod']
+
+Resources:
+  DnsRecord:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Ref Route53StackUrl
+      TimeoutInMinutes: 2
+      Parameters:
+        Name: !Ref ApiGatewayDomainName
+        Value: !Ref LoadbalancerDns
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckTimeoutSeconds: 5
+      UnhealthyThresholdCount: 3
+      HealthyThresholdCount: 3
+      Name: !Sub "${Environment}-${Subsystem}-${Name}-tg"
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 20
+      TargetType: ip
+      VpcId: !Ref VpcId
+
+  ListenerRule:
+    Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values:
+              - !Ref ApiGatewayDomainName
+      ListenerArn: !Ref HttpsListenerArn
+      Priority: 1
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-sg"
+      GroupName: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-sg"
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - FromPort: 443
+          ToPort: 443
+          IpProtocol: 'tcp'
+          CidrIp: '0.0.0.0/0'
+        - FromPort: 53
+          ToPort: 53
+          IpProtocol: 'tcp'
+          CidrIp: '0.0.0.0/0'
+        - FromPort: 3306
+          ToPort: 3306
+          IpProtocol: 'tcp'
+          CidrIp: '0.0.0.0/0'
+        - FromPort: 53
+          ToPort: 53
+          IpProtocol: 'udp'
+          CidrIp: '0.0.0.0/0'
+      SecurityGroupIngress:
+        - FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          IpProtocol: 'tcp'
+          CidrIp: '0.0.0.0/0'
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-service"
+      Cluster: !Ref ClusterArn
+      TaskDefinition: !Ref TaskDefinition
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      DesiredCount: !Ref DesiredTaskCount
+      HealthCheckGracePeriodSeconds: 15
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !Ref SecurityGroup
+      LoadBalancers:
+        - ContainerName: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-con"
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: !If
+            - ProdTemplate
+            - 1
+            - 0
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 1
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn: LogGroup
+    Properties:
+      Family: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-td"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref CPU
+      Memory: !Ref Memory
+      ExecutionRoleArn: !Ref ExecutionRole
+      TaskRoleArn: !Ref TaskRole
+      ContainerDefinitions:
+# app container
+        - Name: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-con"
+          Image: !Sub "${AwsAutomationAccount}.dkr.ecr.${AwsAutomationAccountRegion}.amazonaws.com/${Platform}/${System}-${Subsystem}-${Name}-repo:${Version}"
+          Environment:
+            - Name: Environment
+              Value: !Ref Environment
+            - Name: Application__Environment
+              Value: !Ref Environment
+            - Name : ASPNETCORE_ENVIRONMENT
+              Value: !Ref Environment
+            - Name : Application__Platform
+              Value: !Ref Platform
+            - Name : Application__System
+              Value: !Ref System
+            - Name : Application__Subsystem
+              Value: !Ref Subsystem
+            - Name : Application__Version
+              Value: !Ref Version
+            - Name: NEW_RELIC_APP_NAME
+              Value: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}"
+            - Name: NEW_RELIC_DISTRIBUTED_TRACING_ENABLED
+              Value: 'true'
+            - Name: NEW_RELIC_LOG
+              Value: 'stdout'
+          Secrets:
+            - Name: NEW_RELIC_LICENSE_KEY
+              ValueFrom: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Environment}/${Platform}/${System}/${Subsystem}/app/Newrelic/LicenseKey"
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort  
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: !Ref Version
+# NR sidecar container
+        - Name: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-sidecar-newrelic"
+          Image: 'newrelic/nri-ecs:1.6.1'
+          Essential: true
+          Secrets:
+            - Name: NRIA_LICENSE_KEY
+              ValueFrom: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Environment}/${Platform}/${System}/${Subsystem}/app/Newrelic/LicenseKey"
+          Environment:
+            - Name: NRIA_OVERRIDE_HOST_ROOT
+              Value: ''
+            - Name: NRIA_IS_FORWARD_ONLY
+              Value: 'true'
+            - Name: FARGATE
+              Value: 'true'
+            - Name: NRIA_PASSTHROUGH_ENVIRONMENT
+              Value: 'ECS_CONTAINER_METADATA_URI,ECS_CONTAINER_METADATA_URI_V4,FARGATE'
+            - Name: NRIA_CUSTOM_ATTRIBUTES
+              Value:  !Sub '{"nrDeployMethod":"downloadPage", "environment":"${Environment}", "service":"${Environment}-${Platform}-${System}-${Subsystem}-${Name}"}'
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/ecs/${Environment}-${Platform}-${System}-${Subsystem}-${Name}"
+      RetentionInDays: !If
+        - ProdTemplate
+        - !Ref ProdRetentionInDays
+        - !Ref NonProdRetentionInDays
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-ExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: SSMParams
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ssm:DescribeParameters'
+                  - 'ssm:GetParameter*'
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Environment}/${Platform}/${System}/${Subsystem}/*"
+        - PolicyName: KmsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'kms:Decrypt'
+                  - 'kms:DescribeKey'
+                  - 'kms:GenerateDataKey*'
+                Resource:
+                  - !Ref KMSKey
+        - PolicyName: CloudWatchLogsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource:
+                  - !Select [0, !Split [':*', !GetAtt LogGroup.Arn]]
+                  - !Join [':', [!Select [0, !Split [':*', !GetAtt LogGroup.Arn]], 'log-stream:*']]
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+        
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-TaskRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: SSMParams
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ssm:DescribeParameters'
+                  - 'ssm:GetParameter*'
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Environment}/${Platform}/${System}/${Subsystem}/*"
+        - PolicyName: CloudWatchLogsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource:
+                  - !Select [0, !Split [':*', !GetAtt LogGroup.Arn]]
+                  - !Join [':', [!Select [0, !Split [':*', !GetAtt LogGroup.Arn]], 'log-stream:*']]
+        - PolicyName: KmsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'kms:Decrypt'
+                  - 'kms:DescribeKey'
+                  - 'kms:GenerateDataKey*'
+                Resource:
+                  - !Ref KMSKey
+
+  AutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref MinContainers
+      MaxCapacity: !Ref MaxContainers
+      ResourceId: !Join ["/", [service, !Ref ClusterName, !GetAtt Service.Name]]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService"
+
+  AutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub "${Environment}-${Platform}-${System}-${Subsystem}-${Name}-AutoScalingPolicy"
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 10
+        ScaleOutCooldown: 10
+        TargetValue: 50

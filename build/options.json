@@ -1,0 +1,50 @@
+﻿{
+  "ApplicationName": "WebApi",
+  "ApplicationPlatfrom": "bloxx",
+  "ApplicationSystem": "aaa3",
+  "ApplicationSubsystem": "basic",
+  "ApplicationOwner": "bloxx",
+  "ToolsFolder": "caketools",
+  "ArtifactsFolder": "artifacts",
+  "CoverageResult": "./dotcover/coverageResult.dcvr",
+  "CoverageReport": "./dotcover/coverageReport.html",
+  "PublishFolder": "publish",
+  "SolutionFile": "aaa3.basic.sln",
+  "TestProjectPattern": "Tests",
+  "PackagingNuspec": [
+    "../aaa3.basic.nuspec"
+  ],
+  "PublishProjects": [
+    {
+      "ZipOutput": true,
+      "ZipFileName": "aaa3.basic.zip",
+      "SettingsZipFileName": "aaa3.basic_jsonSettings.zip",
+      "SettingsFolder": "src/aaa3.basic.WebApi/configs"
+    },
+    {
+      "ProjectFile": "test/aaa3.basic.Integrations/aaa3.basic.Integrations.csproj",
+      "ProjectOutput": "integrations"
+    }
+  ],
+  "DotCoverFilters": [ "-:Tests", "-:build" ],
+  "SonarQubeProjectKey": "NLMICROSERVICES_aaa4-Responder",
+  "BitBucketProjectKey": "NLMICROSERVICES",
+  "BitBucketRepoSlug": "aaa4-Responder",
+  "SonarQube.ProjectName": "aaa3.basic",
+  "AwsCodeArtifactsRepo": "bloxx",
+  "AwsCodeArtifactsDomainOwner": "380786374138",
+  "AwsCodeArtifactsDomain": "prod-automation-codeartifact",
+  "AwsRegion": "eu-central-1",
+  "EcrRoot": "380786374138.dkr.ecr.eu-central-1.amazonaws.com",
+  "ReleasableBranches": [ "main", "development", "hotfix", "release" ],
+  "BranchEnvironmentMap": {
+    "main": "prod",
+    "development": "test",
+    "hotfix": "sit",
+    "release": "sit"
+  },
+  "IntegrationTestsDll": "publish/integrations/aaa3.basic.Integrations.dll",
+  "TestrailProjectId": 43,
+  "TestrailSectionId": 25333,
+  "TestrailBaseUrl": "https://parkmobile.testrail.net/"
+}
